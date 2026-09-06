@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    color-scheme: light;
+  }
+
+  .dark, [data-theme="dark"] {
+    --background: #090d16;
+    --foreground: #f8fafc;
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after {
+    font-family: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  html {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    max-width: 100vw;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6, button, input, select, textarea {
+    font-family: 'Lexend', sans-serif !important;
+  }
+
+  /* ==========================================================================
+     GLOBAL CLICKABLE / POINTER CURSOR RULES
+     Ensures hand icon (cursor: pointer) displays on all clickable UI elements
+     across the entire application instead of standard mouse arrow.
+     ========================================================================== */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]):not([disabled]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a,
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  label[for],
+  label:has(input[type="checkbox"]:not(:disabled)),
+  label:has(input[type="radio"]:not(:disabled)),
+  .cursor-pointer,
+  [data-clickable="true"] {
+    cursor: pointer !important;
+  }
+
+  /* Disabled states show not-allowed cursor */
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  [role="button"]:disabled,
+  [type="button"]:disabled,
+  [type="submit"]:disabled,
+  [type="reset"]:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled,
+  .cursor-not-allowed,
+  [aria-disabled="true"] {
+    cursor: not-allowed !important;
+  }
+}
+
+/* Custom smooth scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
