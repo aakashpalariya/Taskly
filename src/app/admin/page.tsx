@@ -44,6 +44,7 @@ interface AdminUser {
   isActive: boolean;
   themePreference: string;
   soundEnabled: boolean;
+  dob?: string | null;
   createdAt: string;
   lastActiveAt: string | null;
   totalTasks: number;
@@ -85,6 +86,7 @@ interface UserDetailData {
     isActive: boolean;
     themePreference: string;
     soundEnabled: boolean;
+    dob?: string | null;
     createdAt: string;
     lastActiveAt: string | null;
   };
@@ -782,7 +784,8 @@ export default function AdminPage() {
                     </div>
 
                     {/* Metadata & Timestamp */}
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5 flex-wrap gap-2">
+                      <span>DOB: <strong className="text-slate-600 dark:text-slate-300 font-semibold">{user.dob ? formatDate(user.dob) : 'Not set'}</strong></span>
                       <span>Joined: {formatDate(user.createdAt)}</span>
                       <span>Last Seen: {formatDateTime(user.lastActiveAt)}</span>
                     </div>
@@ -1062,6 +1065,7 @@ export default function AdminPage() {
                   </h3>
                   <p className="text-[11px] text-slate-500 truncate">
                     {userDetails?.user.email || 'Loading...'}
+                    {userDetails?.user.dob ? ` • DOB: ${formatDate(userDetails.user.dob)}` : ''}
                   </p>
                 </div>
               </div>

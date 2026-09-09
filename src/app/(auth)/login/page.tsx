@@ -74,13 +74,6 @@ export default function LoginPage() {
     }
   };
 
-  const handlePrefillDemo = () => {
-    setEmail('demo@taskly.app');
-    setPassword('Taskly@123');
-    setFieldErrors({});
-    setError('');
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-slate-50 dark:bg-slate-950">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
@@ -116,26 +109,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Demo Account Banner */}
-        <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-3 text-xs">
-          <div>
-            <span className="font-semibold text-indigo-900 dark:text-indigo-300 block">
-              Try Instant Demo
-            </span>
-            <span className="text-[11px] text-indigo-700 dark:text-indigo-400">
-              Pre-populated with tasks, projects & tags
-            </span>
-          </div>
-          <Button
-            type="button"
-            size="xs"
-            variant="primary"
-            onClick={handlePrefillDemo}
-          >
-            Auto Fill
-          </Button>
-        </div>
-
         {error && (
           <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-medium border border-rose-200 dark:border-rose-900/50">
             {error}
@@ -157,18 +130,30 @@ export default function LoginPage() {
             error={fieldErrors.email}
           />
 
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
-            }}
-            placeholder="••••••••"
-            leftIcon={<Lock className="w-4 h-4" />}
-            error={fieldErrors.password}
-          />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                Password
+              </span>
+              <Link
+                href="/forgot-password"
+                className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Forgot Password?
+              </Link>
+            </div>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+              }}
+              placeholder="••••••••"
+              leftIcon={<Lock className="w-4 h-4" />}
+              error={fieldErrors.password}
+            />
+          </div>
 
           <div className="pt-2">
             <Button

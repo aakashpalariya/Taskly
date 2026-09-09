@@ -10,6 +10,7 @@ export function runSchemaCreation(db: { exec: (sql: string) => void }): void {
       sound_enabled INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER DEFAULT 1,
       last_active_at TEXT,
+      dob TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -127,6 +128,12 @@ export function runSchemaCreation(db: { exec: (sql: string) => void }): void {
 
   try {
     db.exec('ALTER TABLE users ADD COLUMN last_active_at TEXT');
+  } catch {
+    // Column already exists
+  }
+
+  try {
+    db.exec('ALTER TABLE users ADD COLUMN dob TEXT');
   } catch {
     // Column already exists
   }

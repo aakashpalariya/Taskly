@@ -20,14 +20,33 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
     console.error('Error seeding admin password:', err);
   }
 
-  const existingUsers = sqliteDb.prepare('SELECT COUNT(*) as count FROM users').get();
-  if (existingUsers && existingUsers.count > 0) return;
+  // Check if demo user already exists with DOB setup
+  const demoUser = sqliteDb.prepare('SELECT * FROM users WHERE LOWER(email) = ?').get('demo@taskly.app');
+  if (demoUser && demoUser.dob === '2001-01-01') {
+    return; // Already initialized with fresh default data
+  }
 
-  const passwordHash = await bcrypt.hash('Taskly@123', 10);
+  // Clear existing data to ensure only fresh default data remains
+  try {
+    sqliteDb.prepare('DELETE FROM subtasks').run();
+    sqliteDb.prepare('DELETE FROM task_tags').run();
+    sqliteDb.prepare('DELETE FROM tasks').run();
+    sqliteDb.prepare('DELETE FROM tags').run();
+    sqliteDb.prepare('DELETE FROM projects').run();
+    sqliteDb.prepare('DELETE FROM pomodoro_sessions').run();
+    sqliteDb.prepare('DELETE FROM activity_logs').run();
+    sqliteDb.prepare('DELETE FROM notifications').run();
+    sqliteDb.prepare('DELETE FROM users').run();
+  } catch (err) {
+    console.error('Error wiping database tables:', err);
+  }
+
+  const passwordHash = await bcrypt.hash('Demo@123', 10);
   const user = usersDb.create({
-    fullName: 'Alex Morgan',
+    fullName: 'Demo User',
     email: 'demo@taskly.app',
     passwordHash,
+    dob: '2001-01-01',
   });
 
   // Projects

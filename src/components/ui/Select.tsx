@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface SelectOption {
@@ -166,9 +166,15 @@ export function Select({
   };
 
   const sizeClasses = {
-    sm: 'h-9 text-xs px-3',
-    md: 'h-11 text-xs sm:text-sm px-3.5',
+    sm: 'h-11 text-sm px-3.5',
+    md: 'h-11 text-sm px-3.5',
     lg: 'h-12 text-sm sm:text-base px-4',
+  }[selectSize];
+
+  const optionTextSizeClass = {
+    sm: 'text-sm',
+    md: 'text-sm',
+    lg: 'text-sm sm:text-base',
   }[selectSize];
 
   return (
@@ -198,7 +204,7 @@ export function Select({
           }
         }}
         className={cn(
-          'w-full flex items-center justify-between gap-2 rounded-xl font-semibold transition-all cursor-pointer select-none text-left',
+          'w-full flex items-center justify-between gap-2 rounded-xl transition-all cursor-pointer select-none text-left',
           'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100',
           'hover:border-slate-300 dark:hover:border-slate-700',
           'focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500',
@@ -214,8 +220,8 @@ export function Select({
           {selectedOption?.icon && <span className="shrink-0">{selectedOption.icon}</span>}
           <span
             className={cn(
-              'truncate font-semibold',
-              !selectedOption ? 'text-slate-400 dark:text-slate-500 font-normal' : 'text-slate-900 dark:text-white'
+              'truncate font-normal',
+              !selectedOption ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
             )}
           >
             {selectedOption ? selectedOption.label : placeholder}
@@ -240,7 +246,7 @@ export function Select({
               position: 'fixed',
               top: `${coords.top}px`,
               left: `${coords.left}px`,
-              width: `${Math.max(coords.width, 180)}px`,
+              width: `${coords.width}px`,
               zIndex: 99999,
             }}
             className={cn(
@@ -262,9 +268,10 @@ export function Select({
                     disabled={opt.disabled}
                     onClick={() => handleSelect(opt.value)}
                     className={cn(
-                      'w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer text-left',
+                      'w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl font-normal transition-all cursor-pointer text-left',
+                      optionTextSizeClass,
                       isSelected
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold'
                         : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80',
                       opt.disabled && 'opacity-40 cursor-not-allowed'
                     )}
@@ -273,8 +280,6 @@ export function Select({
                       {opt.icon && <span className="shrink-0">{opt.icon}</span>}
                       <span className="truncate">{opt.label}</span>
                     </div>
-
-                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0 ml-1.5 stroke-[2.5]" />}
                   </button>
                 );
               })

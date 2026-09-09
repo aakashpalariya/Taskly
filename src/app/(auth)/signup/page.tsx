@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Lock, Mail, User } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Input } from '@/components/ui/Input';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { Button } from '@/components/ui/Button';
 
 export default function SignupPage() {
@@ -15,18 +16,20 @@ export default function SignupPage() {
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [dob, setDob] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{
     fullName?: string;
     email?: string;
+    dob?: string;
     password?: string;
   }>({});
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs: { fullName?: string; email?: string; password?: string } = {};
+    const errs: { fullName?: string; email?: string; dob?: string; password?: string } = {};
 
     if (!fullName.trim()) {
       errs.fullName = 'Full name is required';
@@ -38,6 +41,10 @@ export default function SignupPage() {
       errs.email = 'Email address is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       errs.email = 'Please enter a valid email address';
+    }
+
+    if (!dob) {
+      errs.dob = 'Date of birth is required';
     }
 
     if (!password) {
@@ -55,7 +62,7 @@ export default function SignupPage() {
     setError('');
     setLoading(true);
 
-    const res = await signup(fullName, email, password);
+    const res = await signup(fullName, email, password, dob);
     setLoading(false);
 
     if (res.success) {
@@ -120,6 +127,18 @@ export default function SignupPage() {
             placeholder="alex@example.com"
             leftIcon={<Mail className="w-4 h-4" />}
             error={fieldErrors.email}
+          />
+
+          <DatePicker
+            label="Date of Birth"
+            value={dob}
+            onChange={(val) => {
+              setDob(val);
+              if (fieldErrors.dob)
+                setFieldErrors((prev) => ({ ...prev, dob: undefined }));
+            }}
+            helperText="Used to recover/reset your password if forgotten"
+            error={fieldErrors.dob}
           />
 
           <Input

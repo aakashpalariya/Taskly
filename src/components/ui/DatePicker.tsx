@@ -18,6 +18,7 @@ import {
 } from 'date-fns';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Select } from './Select';
 
 interface DatePickerProps {
   label?: string;
@@ -25,6 +26,7 @@ interface DatePickerProps {
   onChange: (value: string) => void;
   required?: boolean;
   error?: string;
+  helperText?: string;
   disabled?: boolean;
   className?: string;
   align?: 'left' | 'right' | 'auto';
@@ -36,6 +38,7 @@ export function DatePicker({
   onChange,
   required,
   error,
+  helperText,
   disabled,
   className = '',
   align = 'auto',
@@ -68,7 +71,7 @@ export function DatePicker({
     const rect = triggerRef.current.getBoundingClientRect();
     const isMobile = window.innerWidth < 640;
     const popoverWidth = 320;
-    const popoverHeight = 340;
+    const popoverHeight = 350;
 
     if (isMobile) {
       setCoords({ top: 0, left: 0, isMobile: true });
@@ -149,7 +152,32 @@ export function DatePicker({
     setCurrentMonth(addMonths(currentMonth, 1));
   };
 
+  const handleYearChange = (valStr: string) => {
+    const newYear = parseInt(valStr, 10);
+    const updated = new Date(currentMonth);
+    updated.setFullYear(newYear);
+    setCurrentMonth(updated);
+  };
+
+  const handleMonthChange = (valStr: string) => {
+    const newMonth = parseInt(valStr, 10);
+    const updated = new Date(currentMonth);
+    updated.setMonth(newMonth);
+    setCurrentMonth(updated);
+  };
+
   const formattedDisplay = value ? format(parseISO(value), 'dd MMM yyyy') : 'Select date';
+
+  // Generate years list (1920 to current year + 5)
+  const currentYearNum = new Date().getFullYear();
+  const years = Array.from({ length: currentYearNum - 1920 + 6 }, (_, i) => currentYearNum + 5 - i);
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const monthOptions = months.map((m, idx) => ({ label: m, value: String(idx) }));
+  const yearOptions = years.map((y) => ({ label: String(y), value: String(y) }));
 
   return (
     <div className={`relative w-full space-y-1.5 text-left ${className}`}>
@@ -166,7 +194,7 @@ export function DatePicker({
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'w-full h-11 flex items-center justify-between px-3.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none',
+          'w-full h-11 flex items-center justify-between px-3.5 rounded-xl text-sm font-normal transition-all cursor-pointer select-none',
           isOpen
             ? 'ring-2 ring-indigo-500 border-transparent bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
             : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white hover:border-slate-300 dark:hover:border-slate-700',
@@ -216,10 +244,29 @@ export function DatePicker({
               className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4"
             >
               {/* Header Month / Year Navigation */}
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                  {format(currentMonth, 'MMMM yyyy')}
-                </h4>
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  {/* Month Select (Flex 1 to give full space to long month names like September/November) */}
+                  <div className="flex-1 min-w-0">
+                    <Select
+                      selectSize="sm"
+                      value={String(currentMonth.getMonth())}
+                      onChange={handleMonthChange}
+                      options={monthOptions}
+                    />
+                  </div>
+
+                  {/* Year Select */}
+                  <div className="w-24 shrink-0">
+                    <Select
+                      selectSize="sm"
+                      value={String(currentMonth.getFullYear())}
+                      onChange={handleYearChange}
+                      options={yearOptions}
+                    />
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -310,6 +357,9 @@ export function DatePicker({
         )}
 
       {error && <p className="text-xs text-rose-500 font-semibold mt-1">{error}</p>}
+      {helperText && !error && (
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{helperText}</p>
+      )}
     </div>
   );
 }

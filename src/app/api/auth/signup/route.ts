@@ -14,9 +14,10 @@ export async function POST(req: NextRequest) {
     const fullName = (body.fullName || '').trim();
     const email = (body.email || '').trim().toLowerCase();
     const password = body.password;
+    const dob = (body.dob || '').trim();
 
-    if (!fullName || !email || !password) {
-      return Response.json({ success: false, error: 'Full name, email, and password are required' }, { status: 400 });
+    if (!fullName || !email || !password || !dob) {
+      return Response.json({ success: false, error: 'Full name, email, password, and date of birth are required' }, { status: 400 });
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
       fullName,
       email,
       passwordHash,
+      dob,
     });
 
     // Seed default starter projects & tags for the new user

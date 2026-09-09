@@ -123,9 +123,6 @@ export function CustomSelect({
                       )}
                     </div>
                   </div>
-                  {isSelected && (
-                    <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 ml-2" />
-                  )}
                 </button>
               );
             })

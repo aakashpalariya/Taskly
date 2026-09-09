@@ -17,7 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (fullName: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (fullName: string, email: string, password: string, dob: string) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (data: { fullName?: string; themePreference?: string; soundEnabled?: boolean }) => Promise<{ success: boolean; error?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -71,12 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signup = useCallback(async (fullName: string, email: string, password: string) => {
+  const signup = useCallback(async (fullName: string, email: string, password: string, dob: string) => {
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName, email, password }),
+        body: JSON.stringify({ fullName, email, password, dob }),
       });
       const json = await res.json();
       if (json.success) {

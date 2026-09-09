@@ -10,6 +10,7 @@ export interface AdminUserStats {
   isActive: boolean;
   themePreference: string;
   soundEnabled: boolean;
+  dob?: string | null;
   createdAt: string;
   lastActiveAt: string | null;
   totalTasks: number;
@@ -105,6 +106,7 @@ export const adminDb = {
         COALESCE(u.is_active, 1) as is_active,
         u.theme_preference,
         u.sound_enabled,
+        u.dob,
         u.created_at,
         u.last_active_at,
         (SELECT COUNT(*) FROM tasks t WHERE t.user_id = u.id AND t.is_deleted = 0) as total_tasks,
@@ -127,6 +129,7 @@ export const adminDb = {
         isActive: (r.is_active ?? 1) === 1,
         themePreference: r.theme_preference || 'system',
         soundEnabled: r.sound_enabled !== 0,
+        dob: r.dob || null,
         createdAt: r.created_at,
         lastActiveAt: r.last_active_at || null,
         totalTasks: Number(r.total_tasks || 0),
@@ -137,7 +140,7 @@ export const adminDb = {
     } catch (err) {
       console.error('Failed to run full admin users query, running fallback:', err);
       try {
-        const fallbackSql = `SELECT id, full_name, email, created_at FROM users ORDER BY created_at DESC`;
+        const fallbackSql = `SELECT id, full_name, email, dob, created_at FROM users ORDER BY created_at DESC`;
         const basicRows = sqliteDb.prepare(fallbackSql).all();
         return basicRows.map((r: any) => ({
           id: r.id,
@@ -147,6 +150,7 @@ export const adminDb = {
           isActive: true,
           themePreference: 'system',
           soundEnabled: true,
+          dob: r.dob || null,
           createdAt: r.created_at,
           lastActiveAt: null,
           totalTasks: 0,
@@ -201,6 +205,7 @@ export const adminDb = {
         isActive: user.is_active !== 0,
         themePreference: user.theme_preference,
         soundEnabled: user.sound_enabled === 1,
+        dob: user.dob || null,
         createdAt: user.created_at,
         lastActiveAt: user.last_active_at,
       },

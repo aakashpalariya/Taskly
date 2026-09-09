@@ -164,7 +164,8 @@ The database seeds automatically on initial startup. You can sign in using:
 
 ### Demo User Account
 - **Email**: `demo@taskly.app`
-- **Password**: `Taskly@123`
+- **Password**: `Demo@123`
+- **Date of Birth**: `01/01/2001` (stored as `2001-01-01`)
 - *(Or simply click **Auto Fill** on the login page)*
 
 ### Admin Dashboard (`/admin`)

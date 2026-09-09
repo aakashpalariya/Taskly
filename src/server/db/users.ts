@@ -11,6 +11,7 @@ export interface UserRow {
   sound_enabled: number;
   is_active: number;
   last_active_at?: string | null;
+  dob?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,13 +30,14 @@ export const usersDb = {
     email: string;
     passwordHash: string;
     avatar?: string | null;
+    dob?: string | null;
   }): UserRow {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
     sqliteDb.prepare(`
-      INSERT INTO users (id, full_name, email, password_hash, avatar, theme_preference, sound_enabled, is_active, last_active_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, 'system', 1, 1, ?, ?, ?)
+      INSERT INTO users (id, full_name, email, password_hash, avatar, theme_preference, sound_enabled, is_active, last_active_at, dob, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'system', 1, 1, ?, ?, ?, ?)
     `).run(
       id,
       user.fullName.trim(),
@@ -43,6 +45,7 @@ export const usersDb = {
       user.passwordHash,
       user.avatar || null,
       now,
+      user.dob || null,
       now,
       now
     );
@@ -59,6 +62,7 @@ export const usersDb = {
     sound_enabled: number;
     is_active: number;
     last_active_at: string | null;
+    dob: string | null;
   }>): UserRow | undefined {
     const sets: string[] = [];
     const values: any[] = [];
