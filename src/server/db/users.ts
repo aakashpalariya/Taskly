@@ -17,25 +17,25 @@ export interface UserRow {
 }
 
 export const usersDb = {
-  getById(id: string): UserRow | undefined {
-    return sqliteDb.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  async getById(id: string): Promise<UserRow | undefined> {
+    return await sqliteDb.prepare('SELECT * FROM users WHERE id = ?').get(id);
   },
 
-  getByEmail(email: string): UserRow | undefined {
-    return sqliteDb.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)').get(email);
+  async getByEmail(email: string): Promise<UserRow | undefined> {
+    return await sqliteDb.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)').get(email);
   },
 
-  create(user: {
+  async create(user: {
     fullName: string;
     email: string;
     passwordHash: string;
     avatar?: string | null;
     dob?: string | null;
-  }): UserRow {
+  }): Promise<UserRow> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    sqliteDb.prepare(`
+    await sqliteDb.prepare(`
       INSERT INTO users (id, full_name, email, password_hash, avatar, theme_preference, sound_enabled, is_active, last_active_at, dob, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, 'system', 1, 1, ?, ?, ?, ?)
     `).run(
@@ -50,10 +50,11 @@ export const usersDb = {
       now
     );
 
-    return this.getById(id)!;
+    const created = await this.getById(id);
+    return created!;
   },
 
-  update(id: string, fields: Partial<{
+  async update(id: string, fields: Partial<{
     full_name: string;
     email: string;
     password_hash: string;
@@ -63,7 +64,7 @@ export const usersDb = {
     is_active: number;
     last_active_at: string | null;
     dob: string | null;
-  }>): UserRow | undefined {
+  }>): Promise<UserRow | undefined> {
     const sets: string[] = [];
     const values: any[] = [];
 
@@ -74,13 +75,13 @@ export const usersDb = {
       }
     }
 
-    if (sets.length === 0) return this.getById(id);
+    if (sets.length === 0) return await this.getById(id);
 
     sets.push('updated_at = ?');
     values.push(new Date().toISOString());
     values.push(id);
 
-    sqliteDb.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...values);
-    return this.getById(id);
+    await sqliteDb.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+    return await this.getById(id);
   },
 };

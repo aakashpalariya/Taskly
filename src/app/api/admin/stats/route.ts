@@ -13,10 +13,9 @@ export async function GET() {
 
     let stats;
     try {
-      stats = adminDb.getSystemAnalytics();
+      stats = await adminDb.getSystemAnalytics();
     } catch (dbErr) {
       console.error('Admin stats DB error:', dbErr);
-      // Return zero stats instead of 500
       stats = {
         totalUsers: 0,
         activeUsers: 0,

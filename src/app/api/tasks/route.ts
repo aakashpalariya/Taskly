@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       projectId = rawProjectId;
     }
 
-    const tasks = tasksDb.getAll(session.userId, {
+    const tasks = await tasksDb.getAll(session.userId, {
       view,
       projectId,
       search,
@@ -62,14 +62,14 @@ export async function POST(req: NextRequest) {
     let resolvedProjectId = body.projectId || null;
     if (body.projectName && !resolvedProjectId) {
       // Find or create project if projectName supplied via NLP
-      const existingProjects = projectsDb.getByUser(session.userId);
+      const existingProjects = await projectsDb.getByUser(session.userId);
       const matched = existingProjects.find(
         p => p.name.toLowerCase() === body.projectName.toLowerCase()
       );
       if (matched) {
         resolvedProjectId = matched.id;
       } else {
-        const newProj = projectsDb.create({
+        const newProj = await projectsDb.create({
           userId: session.userId,
           name: body.projectName,
           color: '#6366f1',
@@ -82,13 +82,13 @@ export async function POST(req: NextRequest) {
     if (body.tags && Array.isArray(body.tags)) {
       for (const tName of body.tags) {
         if (typeof tName === 'string' && tName.trim()) {
-          const t = tagsDb.getOrCreate(session.userId, tName.trim());
+          const t = await tagsDb.getOrCreate(session.userId, tName.trim());
           if (!tagIds.includes(t.id)) tagIds.push(t.id);
         }
       }
     }
 
-    const task = tasksDb.create({
+    const task = await tasksDb.create({
       userId: session.userId,
       projectId: resolvedProjectId,
       title,

@@ -9,7 +9,7 @@ export async function GET() {
     const session = await getSession();
     if (!session) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-    const tags = tagsDb.getByUser(session.userId);
+    const tags = await tagsDb.getByUser(session.userId);
     return Response.json({ success: true, tags });
   } catch (err) {
     console.error('Get tags error:', err);
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const name = (body.name || '').trim();
     if (!name) return Response.json({ success: false, error: 'Tag name required' }, { status: 400 });
 
-    const tag = tagsDb.getOrCreate(session.userId, name, body.color);
+    const tag = await tagsDb.getOrCreate(session.userId, name, body.color);
     return Response.json({ success: true, tag }, { status: 201 });
   } catch (err) {
     console.error('Create tag error:', err);

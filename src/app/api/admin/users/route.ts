@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     let users: any[] = [];
     try {
-      users = adminDb.getAllUsers({ search, status });
+      users = await adminDb.getAllUsers({ search, status });
     } catch (dbErr) {
       console.error('Admin get users DB error:', dbErr);
       return Response.json({ success: true, users: [] });

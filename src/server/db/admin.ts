@@ -47,7 +47,7 @@ export const adminDb = {
   // --- Admin Password Management ---
   async getAdminPasswordHash(): Promise<string | null> {
     try {
-      const row = sqliteDb.prepare("SELECT value FROM system_settings WHERE key = 'admin_password_hash'").get();
+      const row = await sqliteDb.prepare("SELECT value FROM system_settings WHERE key = 'admin_password_hash'").get();
       return row?.value || null;
     } catch {
       return null;
@@ -57,7 +57,7 @@ export const adminDb = {
   async setAdminPassword(newPasswordPlaintext: string): Promise<void> {
     const hash = await bcrypt.hash(newPasswordPlaintext, 10);
     const now = new Date().toISOString();
-    sqliteDb.prepare(`
+    await sqliteDb.prepare(`
       INSERT INTO system_settings (key, value, updated_at)
       VALUES ('admin_password_hash', ?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
@@ -65,10 +65,18 @@ export const adminDb = {
   },
 
   async verifyAdminPassword(passwordPlaintext: string): Promise<boolean> {
-    // Guaranteed master fallback: default password always validates
+    // 1. Check password from environment variable
+    const envPassword = process.env.ADMIN_PASSWORD?.trim();
+    if (envPassword) {
+      return passwordPlaintext === envPassword;
+    }
+
+    // 2. Fallback to default password
     if (passwordPlaintext === 'Admin@Taskly2025') {
       return true;
     }
+
+    // 3. Fallback to DB stored hash
     try {
       const hash = await this.getAdminPasswordHash();
       if (!hash) {
@@ -81,7 +89,7 @@ export const adminDb = {
   },
 
   // --- User Operations ---
-  getAllUsers(options?: { search?: string; status?: 'all' | 'active' | 'deactivated' }): AdminUserStats[] {
+  async getAllUsers(options?: { search?: string; status?: 'all' | 'active' | 'deactivated' }): Promise<AdminUserStats[]> {
     let whereClause = '1=1';
     const params: any[] = [];
 
@@ -119,7 +127,7 @@ export const adminDb = {
     `;
 
     try {
-      const rows = sqliteDb.prepare(sql).all(...params);
+      const rows = await sqliteDb.prepare(sql).all(...params);
 
       return rows.map((r: any) => ({
         id: r.id,
@@ -141,7 +149,7 @@ export const adminDb = {
       console.error('Failed to run full admin users query, running fallback:', err);
       try {
         const fallbackSql = `SELECT id, full_name, email, dob, created_at FROM users ORDER BY created_at DESC`;
-        const basicRows = sqliteDb.prepare(fallbackSql).all();
+        const basicRows = await sqliteDb.prepare(fallbackSql).all();
         return basicRows.map((r: any) => ({
           id: r.id,
           fullName: r.full_name,
@@ -165,11 +173,11 @@ export const adminDb = {
     }
   },
 
-  getUserDetails(userId: string) {
-    const user = sqliteDb.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  async getUserDetails(userId: string) {
+    const user = await sqliteDb.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     if (!user) return null;
 
-    const stats = sqliteDb.prepare(`
+    const stats = await sqliteDb.prepare(`
       SELECT 
         (SELECT COUNT(*) FROM tasks WHERE user_id = ? AND is_deleted = 0) as total_tasks,
         (SELECT COUNT(*) FROM tasks WHERE user_id = ? AND is_completed = 1 AND is_deleted = 0) as completed_tasks,
@@ -179,12 +187,12 @@ export const adminDb = {
         (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = ? AND session_type = 'FOCUS') as focus_minutes
     `).get(userId, userId, userId, userId, userId, userId);
 
-    const projects = sqliteDb.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC').all(userId);
-    const recentTasks = sqliteDb.prepare('SELECT * FROM tasks WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 10').all(userId);
+    const projects = await sqliteDb.prepare('SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC').all(userId);
+    const recentTasks = await sqliteDb.prepare('SELECT * FROM tasks WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT 10').all(userId);
 
     let activity: any[] = [];
     try {
-      activity = sqliteDb.prepare(`
+      activity = await sqliteDb.prepare(`
         SELECT a.*, t.title as task_title
         FROM activity_logs a
         LEFT JOIN tasks t ON a.task_id = t.id
@@ -223,15 +231,15 @@ export const adminDb = {
     };
   },
 
-  setUserActiveStatus(userId: string, isActive: boolean): boolean {
-    const user = sqliteDb.prepare('SELECT id, email FROM users WHERE id = ?').get(userId);
+  async setUserActiveStatus(userId: string, isActive: boolean): Promise<boolean> {
+    const user = await sqliteDb.prepare('SELECT id, email FROM users WHERE id = ?').get(userId);
     if (!user) return false;
 
-    sqliteDb.transaction(() => {
-      sqliteDb.prepare('UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?')
-        .run(isActive ? 1 : 0, new Date().toISOString(), userId);
+    await sqliteDb.prepare('UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?')
+      .run(isActive ? 1 : 0, new Date().toISOString(), userId);
 
-      sqliteDb.prepare(`
+    try {
+      await sqliteDb.prepare(`
         INSERT INTO activity_logs (id, user_id, action, details, created_at)
         VALUES (?, ?, 'ADMIN_STATUS_CHANGE', ?, ?)
       `).run(
@@ -240,23 +248,25 @@ export const adminDb = {
         `Admin changed user status to ${isActive ? 'ACTIVE' : 'DEACTIVATED'}`,
         new Date().toISOString()
       );
-    })();
+    } catch {
+      // ignore
+    }
 
     return true;
   },
 
   async resetUserPassword(userId: string, newPasswordPlaintext: string): Promise<boolean> {
-    const user = sqliteDb.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    const user = await sqliteDb.prepare('SELECT id FROM users WHERE id = ?').get(userId);
     if (!user) return false;
 
     const hash = await bcrypt.hash(newPasswordPlaintext, 10);
     const now = new Date().toISOString();
 
-    sqliteDb.transaction(() => {
-      sqliteDb.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
-        .run(hash, now, userId);
+    await sqliteDb.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
+      .run(hash, now, userId);
 
-      sqliteDb.prepare(`
+    try {
+      await sqliteDb.prepare(`
         INSERT INTO activity_logs (id, user_id, action, details, created_at)
         VALUES (?, ?, 'ADMIN_RESET_PASSWORD', ?, ?)
       `).run(
@@ -265,67 +275,68 @@ export const adminDb = {
         'Admin reset password for user',
         now
       );
-    })();
+    } catch {
+      // ignore
+    }
 
     return true;
   },
 
-  deleteUser(userId: string): boolean {
-    const user = sqliteDb.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  async deleteUser(userId: string): Promise<boolean> {
+    const user = await sqliteDb.prepare('SELECT id FROM users WHERE id = ?').get(userId);
     if (!user) return false;
 
-    // Find all tasks to delete subtasks and tags (outside transaction for safety)
-    const userTasks = sqliteDb.prepare('SELECT id FROM tasks WHERE user_id = ?').all(userId);
+    const userTasks = await sqliteDb.prepare('SELECT id FROM tasks WHERE user_id = ?').all(userId);
     const taskIds = userTasks.map((t: any) => t.id);
 
     if (taskIds.length > 0) {
       const placeholders = taskIds.map(() => '?').join(',');
-      try { sqliteDb.prepare(`DELETE FROM subtasks WHERE task_id IN (${placeholders})`).run(...taskIds); } catch { /* ignore */ }
-      try { sqliteDb.prepare(`DELETE FROM task_tags WHERE task_id IN (${placeholders})`).run(...taskIds); } catch { /* ignore */ }
+      try { await sqliteDb.prepare(`DELETE FROM subtasks WHERE task_id IN (${placeholders})`).run(...taskIds); } catch { /* ignore */ }
+      try { await sqliteDb.prepare(`DELETE FROM task_tags WHERE task_id IN (${placeholders})`).run(...taskIds); } catch { /* ignore */ }
     }
 
-    try { sqliteDb.prepare('DELETE FROM tasks WHERE user_id = ?').run(userId); } catch { /* ignore */ }
-    try { sqliteDb.prepare('DELETE FROM projects WHERE user_id = ?').run(userId); } catch { /* ignore */ }
-    try { sqliteDb.prepare('DELETE FROM tags WHERE user_id = ?').run(userId); } catch { /* ignore */ }
-    try { sqliteDb.prepare('DELETE FROM pomodoro_sessions WHERE user_id = ?').run(userId); } catch { /* ignore */ }
-    try { sqliteDb.prepare('DELETE FROM notifications WHERE user_id = ?').run(userId); } catch { /* table may not exist on older DB */ }
-    try { sqliteDb.prepare('DELETE FROM activity_logs WHERE user_id = ?').run(userId); } catch { /* table may not exist on older DB */ }
-    sqliteDb.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    try { await sqliteDb.prepare('DELETE FROM tasks WHERE user_id = ?').run(userId); } catch { /* ignore */ }
+    try { await sqliteDb.prepare('DELETE FROM projects WHERE user_id = ?').run(userId); } catch { /* ignore */ }
+    try { await sqliteDb.prepare('DELETE FROM tags WHERE user_id = ?').run(userId); } catch { /* ignore */ }
+    try { await sqliteDb.prepare('DELETE FROM pomodoro_sessions WHERE user_id = ?').run(userId); } catch { /* ignore */ }
+    try { await sqliteDb.prepare('DELETE FROM notifications WHERE user_id = ?').run(userId); } catch { /* ignore */ }
+    try { await sqliteDb.prepare('DELETE FROM activity_logs WHERE user_id = ?').run(userId); } catch { /* ignore */ }
+    await sqliteDb.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
     return true;
   },
 
   // --- Platform Analytics & Live Activity ---
-  getSystemAnalytics(): SystemAnalytics {
-    const totalUsers = sqliteDb.prepare('SELECT COUNT(*) as count FROM users').get()?.count || 0;
-    const activeUsers = sqliteDb.prepare('SELECT COUNT(*) as count FROM users WHERE is_active = 1').get()?.count || 0;
+  async getSystemAnalytics(): Promise<SystemAnalytics> {
+    const totalUsers = (await sqliteDb.prepare('SELECT COUNT(*) as count FROM users').get())?.count || 0;
+    const activeUsers = (await sqliteDb.prepare('SELECT COUNT(*) as count FROM users WHERE is_active = 1').get())?.count || 0;
     const deactivatedUsers = totalUsers - activeUsers;
 
-    const totalTasks = sqliteDb.prepare('SELECT COUNT(*) as count FROM tasks WHERE is_deleted = 0').get()?.count || 0;
-    const completedTasks = sqliteDb.prepare('SELECT COUNT(*) as count FROM tasks WHERE is_completed = 1 AND is_deleted = 0').get()?.count || 0;
-    const totalProjects = sqliteDb.prepare('SELECT COUNT(*) as count FROM projects').get()?.count || 0;
-    const totalFocusMinutes = sqliteDb.prepare("SELECT COALESCE(SUM(duration_minutes), 0) as sum FROM pomodoro_sessions WHERE session_type = 'FOCUS'").get()?.sum || 0;
+    const totalTasks = (await sqliteDb.prepare('SELECT COUNT(*) as count FROM tasks WHERE is_deleted = 0').get())?.count || 0;
+    const completedTasks = (await sqliteDb.prepare('SELECT COUNT(*) as count FROM tasks WHERE is_completed = 1 AND is_deleted = 0').get())?.count || 0;
+    const totalProjects = (await sqliteDb.prepare('SELECT COUNT(*) as count FROM projects').get())?.count || 0;
+    const totalFocusMinutes = (await sqliteDb.prepare("SELECT COALESCE(SUM(duration_minutes), 0) as sum FROM pomodoro_sessions WHERE session_type = 'FOCUS'").get())?.sum || 0;
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const newUsersLast7Days = sqliteDb.prepare('SELECT COUNT(*) as count FROM users WHERE created_at >= ?').get(sevenDaysAgo.toISOString())?.count || 0;
+    const newUsersLast7Days = (await sqliteDb.prepare('SELECT COUNT(*) as count FROM users WHERE created_at >= ?').get(sevenDaysAgo.toISOString()))?.count || 0;
 
     return {
-      totalUsers,
-      activeUsers,
-      deactivatedUsers,
-      totalTasks,
-      completedTasks,
-      completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
-      totalProjects,
-      totalFocusMinutes,
-      newUsersLast7Days,
+      totalUsers: Number(totalUsers),
+      activeUsers: Number(activeUsers),
+      deactivatedUsers: Number(deactivatedUsers),
+      totalTasks: Number(totalTasks),
+      completedTasks: Number(completedTasks),
+      completionRate: totalTasks > 0 ? Math.round((Number(completedTasks) / Number(totalTasks)) * 100) : 0,
+      totalProjects: Number(totalProjects),
+      totalFocusMinutes: Number(totalFocusMinutes),
+      newUsersLast7Days: Number(newUsersLast7Days),
     };
   },
 
-  getRecentSystemActivity(limit = 50): ActivityLogItem[] {
+  async getRecentSystemActivity(limit = 50): Promise<ActivityLogItem[]> {
     try {
-      const rows = sqliteDb.prepare(`
+      const rows = await sqliteDb.prepare(`
         SELECT 
           a.id,
           a.user_id,
@@ -355,7 +366,6 @@ export const adminDb = {
         createdAt: r.created_at,
       }));
     } catch {
-      // activity_logs table may not exist on older databases
       return [];
     }
   },

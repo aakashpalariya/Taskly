@@ -500,17 +500,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="font-semibold text-slate-700 dark:text-slate-300 block">
-                Initial Default Password:
-              </span>
-              <code className="text-indigo-600 dark:text-indigo-400 select-all font-mono font-bold">
-                Admin@Taskly2025
-              </code>
-              <span className="block mt-0.5 text-[10px] text-slate-400">
-                You can change this password inside the Security tab after unlocking.
-              </span>
-            </div>
 
             <button
               type="submit"

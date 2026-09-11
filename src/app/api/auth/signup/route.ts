@@ -28,13 +28,13 @@ export async function POST(req: NextRequest) {
       return Response.json({ success: false, error: 'Password must be at least 6 characters' }, { status: 400 });
     }
 
-    const existing = usersDb.getByEmail(email);
+    const existing = await usersDb.getByEmail(email);
     if (existing) {
       return Response.json({ success: false, error: 'An account with this email already exists' }, { status: 409 });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = usersDb.create({
+    const user = await usersDb.create({
       fullName,
       email,
       passwordHash,
@@ -42,12 +42,12 @@ export async function POST(req: NextRequest) {
     });
 
     // Seed default starter projects & tags for the new user
-    const workProj = projectsDb.create({ userId: user.id, name: 'Work', color: '#3b82f6', icon: '💼', isFavorite: true });
-    projectsDb.create({ userId: user.id, name: 'Personal', color: '#10b981', icon: '🏠', isFavorite: true });
-    const tag = tagsDb.getOrCreate(user.id, 'quick-win', '#06b6d4');
+    const workProj = await projectsDb.create({ userId: user.id, name: 'Work', color: '#3b82f6', icon: '💼', isFavorite: true });
+    await projectsDb.create({ userId: user.id, name: 'Personal', color: '#10b981', icon: '🏠', isFavorite: true });
+    const tag = await tagsDb.getOrCreate(user.id, 'quick-win', '#06b6d4');
 
     // Create a welcome task
-    tasksDb.create({
+    await tasksDb.create({
       userId: user.id,
       projectId: workProj.id,
       title: 'Welcome to Taskly! Click to view details & subtasks',

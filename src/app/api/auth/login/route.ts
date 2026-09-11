@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     let user;
     try {
-      user = usersDb.getByEmail(email);
+      user = await usersDb.getByEmail(email);
     } catch (dbErr) {
       console.error('Login DB lookup error:', dbErr);
       return Response.json(
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     // Update last active timestamp (non-critical, don't throw)
     try {
-      usersDb.update(user.id, { last_active_at: new Date().toISOString() });
+      await usersDb.update(user.id, { last_active_at: new Date().toISOString() });
     } catch {
       // Ignore non-critical update failures
     }

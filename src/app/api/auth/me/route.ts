@@ -10,7 +10,7 @@ export async function GET() {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = usersDb.getById(session.userId);
+    const user = await usersDb.getById(session.userId);
     if (!user || user.is_active === 0) {
       return Response.json({ success: false, error: 'User not found or deactivated' }, { status: 401 });
     }

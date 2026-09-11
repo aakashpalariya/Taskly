@@ -1,130 +1,108 @@
-import path from 'path';
-import fs from 'fs';
+import { createClient, Client } from '@libsql/client';
 import { runSchemaCreation } from './schema';
 
-function getDbPath(): string {
-  const isServerless = Boolean(
-    process.env.VERCEL ||
-    process.env.AWS_LAMBDA_FUNCTION_NAME ||
-    process.env.NETLIFY
-  );
-  const dir = isServerless ? '/tmp/taskly' : path.join(process.cwd(), 'data');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, 'taskly.db');
-}
+const DEFAULT_TURSO_URL = 'libsql://taskly-aakashpalariya.aws-ap-south-1.turso.io';
+const DEFAULT_TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkxMTIyMTYsImlkIjoiMDFhMDhmNjUtYzUwMS03OGIzLWIyNWUtMDRjYWI1M2Q4OWRlIiwia2lkIjoibHAzN0hHLXNSSFIwbzhpbVBBUmF6NXlYanlnMWhINDk4SUJVSkY1dGN3VSIsInJpZCI6ImNkZjgzOTZkLTRiYzYtNDdlNS1iYWQ3LWU5ZGNhMjZjNDVlMiJ9.N81jIfbqN379h9DMdRciSp8hl_34ZT84UrDVw8U2HHYof9sV8SG52-7CEwO_nHFEGfaXZNZgfbMW8y05v6NdBA';
 
 export interface SqliteStatement {
-  get(...args: any[]): any;
-  all(...args: any[]): any[];
-  run(...args: any[]): any;
+  get(...args: any[]): Promise<any>;
+  all(...args: any[]): Promise<any[]>;
+  run(...args: any[]): Promise<{ changes: number; lastInsertRowid?: any }>;
 }
 
 export interface SqliteDbWrapper {
-  raw: any;
-  exec(sql: string): void;
-  pragma(sql: string): void;
+  raw: Client;
+  exec(sql: string): Promise<void>;
+  pragma(sql: string): Promise<any>;
   prepare(sql: string): SqliteStatement;
-  transaction(fn: (...args: any[]) => any): (...args: any[]) => any;
+  transaction<T>(fn: (...args: any[]) => Promise<T>): (...args: any[]) => Promise<T>;
 }
 
 declare global {
+  // eslint-disable-next-line no-var
+  var __taskly_turso_client: Client | undefined;
   // eslint-disable-next-line no-var
   var __taskly_sqlite_db: SqliteDbWrapper | undefined;
   // eslint-disable-next-line no-var
   var __taskly_sqlite_initialized: boolean | undefined;
 }
 
-function openDb(): SqliteDbWrapper {
-  const dbPath = getDbPath();
-  
-  // Try node:sqlite (Node 22 native DatabaseSync) first
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { DatabaseSync } = require('node:sqlite');
-    const rawDb = new DatabaseSync(dbPath);
-    rawDb.exec('PRAGMA foreign_keys = ON');
-
-    return {
-      raw: rawDb,
-      exec(sql: string) {
-        return rawDb.exec(sql);
-      },
-      pragma(sql: string) {
-        return rawDb.exec(`PRAGMA ${sql}`);
-      },
-      prepare(sql: string) {
-        const stmt = rawDb.prepare(sql);
-        return {
-          get(...args: any[]) {
-            return stmt.get(...args);
-          },
-          all(...args: any[]) {
-            return stmt.all(...args);
-          },
-          run(...args: any[]) {
-            return stmt.run(...args);
-          },
-        };
-      },
-      transaction(fn: (...args: any[]) => any) {
-        return (...args: any[]) => {
-          rawDb.exec('BEGIN TRANSACTION');
-          try {
-            const res = fn(...args);
-            rawDb.exec('COMMIT');
-            return res;
-          } catch (err) {
-            rawDb.exec('ROLLBACK');
-            throw err;
-          }
-        };
-      },
-    };
-  } catch {
-    // Fallback to better-sqlite3
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Database = require('better-sqlite3');
-    const rawDb = new Database(dbPath);
-    rawDb.pragma('foreign_keys = ON');
-
-    return {
-      raw: rawDb,
-      exec(sql: string) {
-        return rawDb.exec(sql);
-      },
-      pragma(sql: string) {
-        return rawDb.pragma(sql);
-      },
-      prepare(sql: string) {
-        const stmt = rawDb.prepare(sql);
-        return {
-          get(...args: any[]) {
-            return stmt.get(...args);
-          },
-          all(...args: any[]) {
-            return stmt.all(...args);
-          },
-          run(...args: any[]) {
-            return stmt.run(...args);
-          },
-        };
-      },
-      transaction(fn: (...args: any[]) => any) {
-        return rawDb.transaction(fn);
-      },
-    };
+function normalizeArgs(args: any[]): any[] {
+  if (args.length === 1 && Array.isArray(args[0])) {
+    return args[0];
   }
+  return args;
+}
+
+function createLibsqlWrapper(client: Client): SqliteDbWrapper {
+  return {
+    raw: client,
+    async exec(sql: string) {
+      await client.executeMultiple(sql);
+    },
+    async pragma(_sql: string) {
+      // Turso manages pragmas at the server level
+      return null;
+    },
+    prepare(sql: string): SqliteStatement {
+      return {
+        async get(...args: any[]) {
+          const flatArgs = normalizeArgs(args);
+          const res = await client.execute({ sql, args: flatArgs });
+          return res.rows[0] ? { ...res.rows[0] } : undefined;
+        },
+        async all(...args: any[]) {
+          const flatArgs = normalizeArgs(args);
+          const res = await client.execute({ sql, args: flatArgs });
+          return res.rows.map((row) => ({ ...row }));
+        },
+        async run(...args: any[]) {
+          const flatArgs = normalizeArgs(args);
+          const res = await client.execute({ sql, args: flatArgs });
+          return {
+            changes: res.rowsAffected,
+            lastInsertRowid: res.lastInsertRowid,
+          };
+        },
+      };
+    },
+    transaction<T>(fn: (...args: any[]) => Promise<T>): (...args: any[]) => Promise<T> {
+      return async (...args: any[]) => {
+        return await fn(...args);
+      };
+    },
+  };
 }
 
 export function getDb(): SqliteDbWrapper {
-  if (!global.__taskly_sqlite_db) {
-    global.__taskly_sqlite_db = openDb();
+  if (!global.__taskly_turso_client) {
+    const url = process.env.TURSO_DATABASE_URL || DEFAULT_TURSO_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN || DEFAULT_TURSO_TOKEN;
+
+    global.__taskly_turso_client = createClient({
+      url,
+      authToken,
+    });
   }
+
+  if (!global.__taskly_sqlite_db) {
+    global.__taskly_sqlite_db = createLibsqlWrapper(global.__taskly_turso_client);
+  }
+
+  return global.__taskly_sqlite_db;
+}
+
+export async function ensureDbInitialized(): Promise<SqliteDbWrapper> {
+  const db = getDb();
   if (!global.__taskly_sqlite_initialized) {
     global.__taskly_sqlite_initialized = true;
-    runSchemaCreation(global.__taskly_sqlite_db);
+    try {
+      await runSchemaCreation(db);
+    } catch (err) {
+      console.error('Turso schema initialization error:', err);
+    }
   }
-  return global.__taskly_sqlite_db;
+  return db;
 }
 
 export const sqliteDb: SqliteDbWrapper = new Proxy({} as SqliteDbWrapper, {

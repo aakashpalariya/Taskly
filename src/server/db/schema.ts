@@ -1,5 +1,5 @@
-export function runSchemaCreation(db: { exec: (sql: string) => void }): void {
-  db.exec(`
+export async function runSchemaCreation(db: { exec: (sql: string) => Promise<void> }): Promise<void> {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       full_name TEXT NOT NULL,
@@ -121,67 +121,20 @@ export function runSchemaCreation(db: { exec: (sql: string) => void }): void {
 
   // Safe migrations for users table columns
   try {
-    db.exec('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1');
+    await db.exec('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1');
   } catch {
     // Column already exists
   }
 
   try {
-    db.exec('ALTER TABLE users ADD COLUMN last_active_at TEXT');
+    await db.exec('ALTER TABLE users ADD COLUMN last_active_at TEXT');
   } catch {
     // Column already exists
   }
 
   try {
-    db.exec('ALTER TABLE users ADD COLUMN dob TEXT');
+    await db.exec('ALTER TABLE users ADD COLUMN dob TEXT');
   } catch {
     // Column already exists
-  }
-
-  // Safe migration: ensure activity_logs table exists (may be missing on older DBs)
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS activity_logs (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        task_id TEXT,
-        action TEXT NOT NULL,
-        details TEXT,
-        created_at TEXT NOT NULL
-      );
-    `);
-  } catch {
-    // Already exists
-  }
-
-  // Safe migration: ensure notifications table exists (may be missing on older DBs)
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        task_id TEXT,
-        title TEXT NOT NULL,
-        message TEXT NOT NULL,
-        is_read INTEGER NOT NULL DEFAULT 0,
-        scheduled_for TEXT,
-        created_at TEXT NOT NULL
-      );
-    `);
-  } catch {
-    // Already exists
-  }
-
-  // Safe migration: ensure system_settings table exists
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS system_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-    `);
-  } catch {
-    // Already exists
   }
 }

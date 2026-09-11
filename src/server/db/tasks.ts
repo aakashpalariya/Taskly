@@ -42,8 +42,8 @@ export interface TaskRow {
 }
 
 export const tasksDb = {
-  getById(id: string): TaskRow | undefined {
-    const task: TaskRow | undefined = sqliteDb.prepare(`
+  async getById(id: string): Promise<TaskRow | undefined> {
+    const task: TaskRow | undefined = await sqliteDb.prepare(`
       SELECT t.*, p.name as project_name, p.color as project_color, p.icon as project_icon
       FROM tasks t
       LEFT JOIN projects p ON t.project_id = p.id
@@ -51,8 +51,8 @@ export const tasksDb = {
     `).get(id);
 
     if (!task) return undefined;
-    task.subtasks = sqliteDb.prepare('SELECT * FROM subtasks WHERE task_id = ? ORDER BY position ASC, created_at ASC').all(id);
-    task.tags = sqliteDb.prepare(`
+    task.subtasks = await sqliteDb.prepare('SELECT * FROM subtasks WHERE task_id = ? ORDER BY position ASC, created_at ASC').all(id);
+    task.tags = await sqliteDb.prepare(`
       SELECT tg.* FROM tags tg
       JOIN task_tags tt ON tg.id = tt.tag_id
       WHERE tt.task_id = ?
@@ -60,14 +60,14 @@ export const tasksDb = {
     return task;
   },
 
-  getAll(userId: string, options?: {
+  async getAll(userId: string, options?: {
     projectId?: string | null; // null for Inbox (explicit null), or string
     view?: 'inbox' | 'today' | 'upcoming' | 'completed' | 'all';
     search?: string;
     priority?: string;
     tagId?: string;
     includeCompleted?: boolean;
-  }): TaskRow[] {
+  }): Promise<TaskRow[]> {
     let sql = `
       SELECT t.*, p.name as project_name, p.color as project_color, p.icon as project_icon
       FROM tasks t
@@ -119,18 +119,18 @@ export const tasksDb = {
 
     sql += ' ORDER BY t.is_completed ASC, t.position ASC, t.due_date ASC, t.created_at DESC';
 
-    const tasks: TaskRow[] = sqliteDb.prepare(sql).all(...params);
+    const tasks: TaskRow[] = await sqliteDb.prepare(sql).all(...params);
 
     // Fetch subtasks and tags in batches for optimal performance
     if (tasks.length > 0) {
       const taskIds = tasks.map(t => t.id);
       const placeholders = taskIds.map(() => '?').join(',');
 
-      const allSubtasks: SubtaskRow[] = sqliteDb.prepare(
+      const allSubtasks: SubtaskRow[] = await sqliteDb.prepare(
         `SELECT * FROM subtasks WHERE task_id IN (${placeholders}) ORDER BY position ASC`
       ).all(...taskIds);
 
-      const allTags: (TagRow & { task_id: string })[] = sqliteDb.prepare(
+      const allTags: (TagRow & { task_id: string })[] = await sqliteDb.prepare(
         `SELECT tg.*, tt.task_id 
          FROM tags tg 
          JOIN task_tags tt ON tg.id = tt.tag_id 
@@ -158,7 +158,7 @@ export const tasksDb = {
     return tasks;
   },
 
-  create(data: {
+  async create(data: {
     userId: string;
     projectId?: string | null;
     title: string;
@@ -174,85 +174,87 @@ export const tasksDb = {
     estimatedMinutes?: number;
     subtasks?: string[];
     tagIds?: string[];
-  }): TaskRow {
+  }): Promise<TaskRow> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    const maxPos = sqliteDb.prepare(
+    const maxPos = await sqliteDb.prepare(
       'SELECT MAX(position) as maxPos FROM tasks WHERE user_id = ? AND is_deleted = 0'
     ).get(data.userId);
     const position = (maxPos?.maxPos ?? -1) + 1;
 
-    return sqliteDb.transaction(() => {
-      sqliteDb.prepare(`
-        INSERT INTO tasks (
-          id, user_id, project_id, title, description, notes, 
-          due_date, due_time, reminder_at, priority, status, 
-          is_completed, completed_at, position, is_recurring, 
-          recurrence_rule, estimated_minutes, actual_minutes, 
-          is_deleted, created_at, updated_at
-        ) VALUES (
-          ?, ?, ?, ?, ?, ?, 
-          ?, ?, ?, ?, ?, 
-          0, NULL, ?, ?, 
-          ?, ?, 0, 
-          0, ?, ?
-        )
-      `).run(
-        id,
-        data.userId,
-        data.projectId || null,
-        data.title.trim(),
-        data.description || null,
-        data.notes || null,
-        data.dueDate || null,
-        data.dueTime || null,
-        data.reminderAt || null,
-        data.priority || 'NONE',
-        data.status || 'TODO',
-        position,
-        data.isRecurring ? 1 : 0,
-        data.recurrenceRule || null,
-        data.estimatedMinutes || 0,
-        now,
-        now
-      );
+    await sqliteDb.prepare(`
+      INSERT INTO tasks (
+        id, user_id, project_id, title, description, notes, 
+        due_date, due_time, reminder_at, priority, status, 
+        is_completed, completed_at, position, is_recurring, 
+        recurrence_rule, estimated_minutes, actual_minutes, 
+        is_deleted, created_at, updated_at
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, 
+        ?, ?, ?, ?, ?, 
+        0, NULL, ?, ?, 
+        ?, ?, 0, 
+        0, ?, ?
+      )
+    `).run(
+      id,
+      data.userId,
+      data.projectId || null,
+      data.title.trim(),
+      data.description || null,
+      data.notes || null,
+      data.dueDate || null,
+      data.dueTime || null,
+      data.reminderAt || null,
+      data.priority || 'NONE',
+      data.status || 'TODO',
+      position,
+      data.isRecurring ? 1 : 0,
+      data.recurrenceRule || null,
+      data.estimatedMinutes || 0,
+      now,
+      now
+    );
 
-      // Insert subtasks if provided
-      if (data.subtasks && data.subtasks.length > 0) {
-        const insertSubtask = sqliteDb.prepare(`
-          INSERT INTO subtasks (id, task_id, title, is_completed, position, created_at)
-          VALUES (?, ?, ?, 0, ?, ?)
-        `);
-        data.subtasks.forEach((subTitle, idx) => {
-          if (subTitle.trim()) {
-            insertSubtask.run(crypto.randomUUID(), id, subTitle.trim(), idx, now);
-          }
-        });
-      }
-
-      // Link tags if provided
-      if (data.tagIds && data.tagIds.length > 0) {
-        const insertTag = sqliteDb.prepare(`
-          INSERT OR IGNORE INTO task_tags (id, task_id, tag_id)
-          VALUES (?, ?, ?)
-        `);
-        for (const tagId of data.tagIds) {
-          insertTag.run(crypto.randomUUID(), id, tagId);
+    // Insert subtasks if provided
+    if (data.subtasks && data.subtasks.length > 0) {
+      for (let idx = 0; idx < data.subtasks.length; idx++) {
+        const subTitle = data.subtasks[idx];
+        if (subTitle.trim()) {
+          await sqliteDb.prepare(`
+            INSERT INTO subtasks (id, task_id, title, is_completed, position, created_at)
+            VALUES (?, ?, ?, 0, ?, ?)
+          `).run(crypto.randomUUID(), id, subTitle.trim(), idx, now);
         }
       }
+    }
 
-      // Log activity
-      sqliteDb.prepare(`
+    // Link tags if provided
+    if (data.tagIds && data.tagIds.length > 0) {
+      for (const tagId of data.tagIds) {
+        await sqliteDb.prepare(`
+          INSERT OR IGNORE INTO task_tags (id, task_id, tag_id)
+          VALUES (?, ?, ?)
+        `).run(crypto.randomUUID(), id, tagId);
+      }
+    }
+
+    // Log activity
+    try {
+      await sqliteDb.prepare(`
         INSERT INTO activity_logs (id, user_id, task_id, action, details, created_at)
         VALUES (?, ?, ?, 'CREATE_TASK', ?, ?)
       `).run(crypto.randomUUID(), data.userId, id, `Created task "${data.title.trim()}"`, now);
+    } catch {
+      // ignore
+    }
 
-      return this.getById(id)!;
-    })();
+    const created = await this.getById(id);
+    return created!;
   },
 
-  update(id: string, userId: string, fields: Partial<{
+  async update(id: string, userId: string, fields: Partial<{
     projectId: string | null;
     title: string;
     description: string | null;
@@ -269,8 +271,8 @@ export const tasksDb = {
     estimatedMinutes: number;
     actualMinutes: number;
     isDeleted: boolean;
-  }>): TaskRow | undefined {
-    const existing = this.getById(id);
+  }>): Promise<TaskRow | undefined> {
+    const existing = await this.getById(id);
     if (!existing || existing.user_id !== userId) return undefined;
 
     const sets: string[] = [];
@@ -329,17 +331,17 @@ export const tasksDb = {
     values.push(new Date().toISOString());
     values.push(id);
 
-    sqliteDb.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+    await sqliteDb.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).run(...values);
 
     // If recurring task was just completed, generate next occurrence
     if (fields.isCompleted && existing.is_recurring && existing.recurrence_rule) {
-      this.handleRecurringRollover(existing);
+      await this.handleRecurringRollover(existing);
     }
 
-    return this.getById(id);
+    return await this.getById(id);
   },
 
-  handleRecurringRollover(task: TaskRow): void {
+  async handleRecurringRollover(task: TaskRow): Promise<void> {
     try {
       const rule = JSON.parse(task.recurrence_rule || '{}');
       const baseDate = task.due_date ? new Date(task.due_date) : new Date();
@@ -359,7 +361,7 @@ export const tasksDb = {
       const nextDueDate = nextDate.toISOString().split('T')[0];
 
       // Clone task for next occurrence
-      this.create({
+      await this.create({
         userId: task.user_id,
         projectId: task.project_id,
         title: task.title,
@@ -378,62 +380,61 @@ export const tasksDb = {
     }
   },
 
-  delete(id: string, userId: string): boolean {
-    const res = sqliteDb.prepare('UPDATE tasks SET is_deleted = 1, updated_at = ? WHERE id = ? AND user_id = ?')
+  async delete(id: string, userId: string): Promise<boolean> {
+    const res = await sqliteDb.prepare('UPDATE tasks SET is_deleted = 1, updated_at = ? WHERE id = ? AND user_id = ?')
       .run(new Date().toISOString(), id, userId);
-    return res.changes > 0;
+    return (res.changes || 0) > 0;
   },
 
-  restore(id: string, userId: string): TaskRow | undefined {
-    sqliteDb.prepare('UPDATE tasks SET is_deleted = 0, updated_at = ? WHERE id = ? AND user_id = ?')
+  async restore(id: string, userId: string): Promise<TaskRow | undefined> {
+    await sqliteDb.prepare('UPDATE tasks SET is_deleted = 0, updated_at = ? WHERE id = ? AND user_id = ?')
       .run(new Date().toISOString(), id, userId);
-    return this.getById(id);
+    return await this.getById(id);
   },
 
-  reorder(userId: string, orderedIds: string[]): void {
-    const updateStmt = sqliteDb.prepare('UPDATE tasks SET position = ? WHERE id = ? AND user_id = ?');
-    sqliteDb.transaction(() => {
-      orderedIds.forEach((id, index) => {
-        updateStmt.run(index, id, userId);
-      });
-    })();
+  async reorder(userId: string, orderedIds: string[]): Promise<void> {
+    for (let index = 0; index < orderedIds.length; index++) {
+      const id = orderedIds[index];
+      await sqliteDb.prepare('UPDATE tasks SET position = ? WHERE id = ? AND user_id = ?').run(index, id, userId);
+    }
   },
 
   // Subtask helpers
-  addSubtask(taskId: string, title: string): SubtaskRow {
+  async addSubtask(taskId: string, title: string): Promise<SubtaskRow> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const maxPos = sqliteDb.prepare('SELECT MAX(position) as maxPos FROM subtasks WHERE task_id = ?').get(taskId);
+    const maxPos = await sqliteDb.prepare('SELECT MAX(position) as maxPos FROM subtasks WHERE task_id = ?').get(taskId);
     const position = (maxPos?.maxPos ?? -1) + 1;
 
-    sqliteDb.prepare(`
+    await sqliteDb.prepare(`
       INSERT INTO subtasks (id, task_id, title, is_completed, position, created_at)
       VALUES (?, ?, ?, 0, ?, ?)
     `).run(id, taskId, title.trim(), position, now);
 
-    return sqliteDb.prepare('SELECT * FROM subtasks WHERE id = ?').get(id);
+    const created = await sqliteDb.prepare('SELECT * FROM subtasks WHERE id = ?').get(id);
+    return created!;
   },
 
-  toggleSubtask(subtaskId: string): SubtaskRow | undefined {
-    const current = sqliteDb.prepare('SELECT * FROM subtasks WHERE id = ?').get(subtaskId);
+  async toggleSubtask(subtaskId: string): Promise<SubtaskRow | undefined> {
+    const current = await sqliteDb.prepare('SELECT * FROM subtasks WHERE id = ?').get(subtaskId);
     if (!current) return undefined;
     const nextVal = current.is_completed === 1 ? 0 : 1;
-    sqliteDb.prepare('UPDATE subtasks SET is_completed = ? WHERE id = ?').run(nextVal, subtaskId);
-    return sqliteDb.prepare('SELECT * FROM subtasks WHERE id = ?').get(subtaskId);
+    await sqliteDb.prepare('UPDATE subtasks SET is_completed = ? WHERE id = ?').run(nextVal, subtaskId);
+    return await sqliteDb.prepare('SELECT * FROM subtasks WHERE id = ?').get(subtaskId);
   },
 
-  deleteSubtask(subtaskId: string): boolean {
-    const res = sqliteDb.prepare('DELETE FROM subtasks WHERE id = ?').run(subtaskId);
-    return res.changes > 0;
+  async deleteSubtask(subtaskId: string): Promise<boolean> {
+    const res = await sqliteDb.prepare('DELETE FROM subtasks WHERE id = ?').run(subtaskId);
+    return (res.changes || 0) > 0;
   },
 
   // Tag helper
-  toggleTaskTag(taskId: string, tagId: string): void {
-    const existing = sqliteDb.prepare('SELECT * FROM task_tags WHERE task_id = ? AND tag_id = ?').get(taskId, tagId);
+  async toggleTaskTag(taskId: string, tagId: string): Promise<void> {
+    const existing = await sqliteDb.prepare('SELECT * FROM task_tags WHERE task_id = ? AND tag_id = ?').get(taskId, tagId);
     if (existing) {
-      sqliteDb.prepare('DELETE FROM task_tags WHERE task_id = ? AND tag_id = ?').run(taskId, tagId);
+      await sqliteDb.prepare('DELETE FROM task_tags WHERE task_id = ? AND tag_id = ?').run(taskId, tagId);
     } else {
-      sqliteDb.prepare('INSERT INTO task_tags (id, task_id, tag_id) VALUES (?, ?, ?)').run(crypto.randomUUID(), taskId, tagId);
+      await sqliteDb.prepare('INSERT INTO task_tags (id, task_id, tag_id) VALUES (?, ?, ?)').run(crypto.randomUUID(), taskId, tagId);
     }
   },
 };

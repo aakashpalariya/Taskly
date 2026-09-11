@@ -11,7 +11,7 @@ export async function GET() {
     const userId = session.userId;
 
     // Total counts
-    const counts = sqliteDb.prepare(`
+    const counts = await sqliteDb.prepare(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed,
@@ -21,7 +21,7 @@ export async function GET() {
     `).get(userId);
 
     // Completion by priority
-    const priorityBreakdown = sqliteDb.prepare(`
+    const priorityBreakdown = await sqliteDb.prepare(`
       SELECT priority, COUNT(*) as count 
       FROM tasks 
       WHERE user_id = ? AND is_deleted = 0 
@@ -29,7 +29,7 @@ export async function GET() {
     `).all(userId);
 
     // Completion by project
-    const projectBreakdown = sqliteDb.prepare(`
+    const projectBreakdown = await sqliteDb.prepare(`
       SELECT COALESCE(p.name, 'Inbox') as projectName, COALESCE(p.color, '#64748b') as color, COUNT(t.id) as count
       FROM tasks t
       LEFT JOIN projects p ON t.project_id = p.id
@@ -44,29 +44,29 @@ export async function GET() {
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
 
-      const dayCompleted = sqliteDb.prepare(`
+      const dayCompleted = (await sqliteDb.prepare(`
         SELECT COUNT(*) as count FROM tasks 
         WHERE user_id = ? AND is_completed = 1 AND completed_at LIKE ?
-      `).get(userId, `${dateStr}%`)?.count || 0;
+      `).get(userId, `${dateStr}%`))?.count || 0;
 
-      const dayCreated = sqliteDb.prepare(`
+      const dayCreated = (await sqliteDb.prepare(`
         SELECT COUNT(*) as count FROM tasks 
         WHERE user_id = ? AND created_at LIKE ?
-      `).get(userId, `${dateStr}%`)?.count || 0;
+      `).get(userId, `${dateStr}%`))?.count || 0;
 
       const label = d.toLocaleDateString(undefined, { weekday: 'short' });
-      velocity7Days.push({ date: label, completed: dayCompleted, created: dayCreated });
+      velocity7Days.push({ date: label, completed: Number(dayCompleted), created: Number(dayCreated) });
     }
 
     // Streak calculation (consecutive days with at least 1 completed task)
     let streak = 0;
-    let checkDate = new Date();
+    const checkDate = new Date();
     // If today has no completions yet, check yesterday to avoid breaking yesterday's streak
     const todayStr = checkDate.toISOString().split('T')[0];
-    const todayDone = sqliteDb.prepare(`
+    const todayDone = (await sqliteDb.prepare(`
       SELECT COUNT(*) as count FROM tasks 
       WHERE user_id = ? AND is_completed = 1 AND completed_at LIKE ?
-    `).get(userId, `${todayStr}%`)?.count || 0;
+    `).get(userId, `${todayStr}%`))?.count || 0;
 
     if (todayDone > 0) {
       streak = 1;
@@ -75,10 +75,10 @@ export async function GET() {
 
     for (let i = 0; i < 30; i++) {
       const dStr = checkDate.toISOString().split('T')[0];
-      const count = sqliteDb.prepare(`
+      const count = (await sqliteDb.prepare(`
         SELECT COUNT(*) as count FROM tasks 
         WHERE user_id = ? AND is_completed = 1 AND completed_at LIKE ?
-      `).get(userId, `${dStr}%`)?.count || 0;
+      `).get(userId, `${dStr}%`))?.count || 0;
 
       if (count > 0) {
         streak++;
@@ -91,9 +91,9 @@ export async function GET() {
     return Response.json({
       success: true,
       stats: {
-        totalTasks: counts?.total || 0,
-        completedTasks: counts?.completed || 0,
-        pendingTasks: counts?.pending || 0,
+        totalTasks: Number(counts?.total || 0),
+        completedTasks: Number(counts?.completed || 0),
+        pendingTasks: Number(counts?.pending || 0),
         completionRate: counts?.total ? Math.round(((counts.completed || 0) / counts.total) * 100) : 0,
         streak,
         priorityBreakdown,

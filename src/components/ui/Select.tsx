@@ -111,7 +111,8 @@ export function Select({
   const updatePosition = () => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const dropdownHeight = Math.min(options.length * 40 + 16, 260);
+    const itemHeight = selectSize === 'sm' ? 32 : 40;
+    const dropdownHeight = Math.min(options.length * itemHeight + 16, 260);
     const spaceBelow = window.innerHeight - rect.bottom;
     const placeUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
 
@@ -166,13 +167,13 @@ export function Select({
   };
 
   const sizeClasses = {
-    sm: 'h-11 text-sm px-3.5',
+    sm: 'h-8 text-xs px-2.5',
     md: 'h-11 text-sm px-3.5',
     lg: 'h-12 text-sm sm:text-base px-4',
   }[selectSize];
 
   const optionTextSizeClass = {
-    sm: 'text-sm',
+    sm: 'text-xs',
     md: 'text-sm',
     lg: 'text-sm sm:text-base',
   }[selectSize];
@@ -215,7 +216,7 @@ export function Select({
           className
         )}
       >
-        <div className="flex items-center gap-2.5 min-w-0 flex-1 truncate">
+        <div className={cn('flex items-center min-w-0 flex-1 truncate', selectSize === 'sm' ? 'gap-1.5' : 'gap-2.5')}>
           {leftIcon && <span className="shrink-0 text-slate-400 dark:text-slate-500">{leftIcon}</span>}
           {selectedOption?.icon && <span className="shrink-0">{selectedOption.icon}</span>}
           <span
@@ -230,7 +231,8 @@ export function Select({
 
         <ChevronDown
           className={cn(
-            'w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-200',
+            selectSize === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4',
+            'text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-200',
             isOpen && 'rotate-180 text-indigo-600 dark:text-indigo-400'
           )}
         />
@@ -250,7 +252,8 @@ export function Select({
               zIndex: 99999,
             }}
             className={cn(
-              'p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl',
+              selectSize === 'sm' ? 'p-1 rounded-xl' : 'p-1.5 rounded-2xl',
+              'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl',
               'max-h-60 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-150'
             )}
           >
@@ -268,7 +271,8 @@ export function Select({
                     disabled={opt.disabled}
                     onClick={() => handleSelect(opt.value)}
                     className={cn(
-                      'w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl font-normal transition-all cursor-pointer text-left',
+                      'w-full flex items-center justify-between gap-2 font-normal transition-all cursor-pointer text-left',
+                      selectSize === 'sm' ? 'px-2.5 py-1 rounded-lg' : 'px-3 py-1.5 rounded-xl',
                       optionTextSizeClass,
                       isSelected
                         ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold'

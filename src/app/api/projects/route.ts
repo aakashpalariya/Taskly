@@ -9,7 +9,7 @@ export async function GET() {
     const session = await getSession();
     if (!session) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-    const projects = projectsDb.getByUser(session.userId);
+    const projects = await projectsDb.getByUser(session.userId);
     return Response.json({ success: true, projects });
   } catch (err) {
     console.error('Get projects error:', err);
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const name = (body.name || '').trim();
     if (!name) return Response.json({ success: false, error: 'Project name required' }, { status: 400 });
 
-    const project = projectsDb.create({
+    const project = await projectsDb.create({
       userId: session.userId,
       name,
       color: body.color || '#6366f1',

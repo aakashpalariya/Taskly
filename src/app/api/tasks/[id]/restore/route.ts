@@ -10,7 +10,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!session) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    const task = tasksDb.restore(id, session.userId);
+    const task = await tasksDb.restore(id, session.userId);
 
     if (!task) {
       return Response.json({ success: false, error: 'Task not found' }, { status: 404 });

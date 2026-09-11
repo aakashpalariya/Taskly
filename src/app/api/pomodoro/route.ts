@@ -9,7 +9,7 @@ export async function GET() {
     const session = await getSession();
     if (!session) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-    const stats = pomodoroDb.getStats(session.userId);
+    const stats = await pomodoroDb.getStats(session.userId);
     return Response.json({ success: true, stats });
   } catch (err) {
     console.error('Get pomodoro stats error:', err);
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const sessionType = body.sessionType || 'FOCUS';
     const taskId = body.taskId || null;
 
-    const pomodoro = pomodoroDb.logSession({
+    const pomodoro = await pomodoroDb.logSession({
       userId: session.userId,
       taskId,
       durationMinutes,

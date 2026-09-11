@@ -13,13 +13,13 @@ export async function GET() {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = usersDb.getById(session.userId);
+    const user = await usersDb.getById(session.userId);
     if (!user) {
       return Response.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
     // Additional quick stats for profile
-    const taskStats = sqliteDb.prepare(`
+    const taskStats = await sqliteDb.prepare(`
       SELECT 
         COUNT(*) as total,
         SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed
@@ -27,9 +27,9 @@ export async function GET() {
       WHERE user_id = ? AND is_deleted = 0
     `).get(session.userId);
 
-    const projectCount = sqliteDb.prepare(`
+    const projectCount = (await sqliteDb.prepare(`
       SELECT COUNT(*) as count FROM projects WHERE user_id = ?
-    `).get(session.userId)?.count || 0;
+    `).get(session.userId))?.count || 0;
 
     return Response.json({
       success: true,
@@ -42,9 +42,9 @@ export async function GET() {
         soundEnabled: user.sound_enabled === 1,
         createdAt: user.created_at,
         stats: {
-          totalTasks: taskStats?.total || 0,
-          completedTasks: taskStats?.completed || 0,
-          projectsCount: projectCount,
+          totalTasks: Number(taskStats?.total || 0),
+          completedTasks: Number(taskStats?.completed || 0),
+          projectsCount: Number(projectCount),
         },
       },
     });
@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = usersDb.getById(session.userId);
+    const user = await usersDb.getById(session.userId);
     if (!user) {
       return Response.json({ success: false, error: 'User not found' }, { status: 404 });
     }
@@ -106,7 +106,7 @@ export async function PATCH(req: NextRequest) {
       updateFields.password_hash = newHash;
     }
 
-    const updatedUser = usersDb.update(user.id, updateFields);
+    const updatedUser = await usersDb.update(user.id, updateFields);
     if (!updatedUser) {
       return Response.json({ success: false, error: 'Failed to update user' }, { status: 500 });
     }

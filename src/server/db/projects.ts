@@ -14,35 +14,35 @@ export interface ProjectRow {
 }
 
 export const projectsDb = {
-  getByUser(userId: string): ProjectRow[] {
-    return sqliteDb.prepare(`
+  async getByUser(userId: string): Promise<ProjectRow[]> {
+    return await sqliteDb.prepare(`
       SELECT * FROM projects 
       WHERE user_id = ? 
       ORDER BY position ASC, created_at ASC
     `).all(userId);
   },
 
-  getById(id: string): ProjectRow | undefined {
-    return sqliteDb.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  async getById(id: string): Promise<ProjectRow | undefined> {
+    return await sqliteDb.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   },
 
-  create(data: {
+  async create(data: {
     userId: string;
     name: string;
     color?: string;
     icon?: string;
     isFavorite?: boolean;
-  }): ProjectRow {
+  }): Promise<ProjectRow> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    const maxPos = sqliteDb.prepare(`
+    const maxPos = await sqliteDb.prepare(`
       SELECT MAX(position) as maxPos FROM projects WHERE user_id = ?
     `).get(data.userId);
 
     const position = (maxPos?.maxPos ?? -1) + 1;
 
-    sqliteDb.prepare(`
+    await sqliteDb.prepare(`
       INSERT INTO projects (id, user_id, name, color, icon, is_favorite, position, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -57,16 +57,17 @@ export const projectsDb = {
       now
     );
 
-    return this.getById(id)!;
+    const created = await this.getById(id);
+    return created!;
   },
 
-  update(id: string, data: Partial<{
+  async update(id: string, data: Partial<{
     name: string;
     color: string;
     icon: string;
     is_favorite: number;
     position: number;
-  }>): ProjectRow | undefined {
+  }>): Promise<ProjectRow | undefined> {
     const sets: string[] = [];
     const values: any[] = [];
 
@@ -77,29 +78,27 @@ export const projectsDb = {
       }
     }
 
-    if (sets.length === 0) return this.getById(id);
+    if (sets.length === 0) return await this.getById(id);
 
     sets.push('updated_at = ?');
     values.push(new Date().toISOString());
     values.push(id);
 
-    sqliteDb.prepare(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`).run(...values);
-    return this.getById(id);
+    await sqliteDb.prepare(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+    return await this.getById(id);
   },
 
-  delete(id: string): boolean {
+  async delete(id: string): Promise<boolean> {
     // When a project is deleted, set project_id to NULL on tasks rather than deleting user's tasks
-    sqliteDb.prepare('UPDATE tasks SET project_id = NULL WHERE project_id = ?').run(id);
-    const res = sqliteDb.prepare('DELETE FROM projects WHERE id = ?').run(id);
-    return res.changes > 0;
+    await sqliteDb.prepare('UPDATE tasks SET project_id = NULL WHERE project_id = ?').run(id);
+    const res = await sqliteDb.prepare('DELETE FROM projects WHERE id = ?').run(id);
+    return (res.changes || 0) > 0;
   },
 
-  reorder(userId: string, orderedIds: string[]): void {
-    const updateStmt = sqliteDb.prepare('UPDATE projects SET position = ? WHERE id = ? AND user_id = ?');
-    sqliteDb.transaction(() => {
-      orderedIds.forEach((id, index) => {
-        updateStmt.run(index, id, userId);
-      });
-    })();
+  async reorder(userId: string, orderedIds: string[]): Promise<void> {
+    for (let index = 0; index < orderedIds.length; index++) {
+      const id = orderedIds[index];
+      await sqliteDb.prepare('UPDATE projects SET position = ? WHERE id = ? AND user_id = ?').run(index, id, userId);
+    }
   },
 };

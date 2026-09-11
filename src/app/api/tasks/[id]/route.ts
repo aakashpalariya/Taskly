@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!session) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    const task = tasksDb.getById(id);
+    const task = await tasksDb.getById(id);
 
     if (!task || task.user_id !== session.userId || task.is_deleted === 1) {
       return Response.json({ success: false, error: 'Task not found' }, { status: 404 });
@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
 
-    const updated = tasksDb.update(id, session.userId, {
+    const updated = await tasksDb.update(id, session.userId, {
       projectId: body.projectId !== undefined ? body.projectId : undefined,
       title: body.title !== undefined ? body.title : undefined,
       description: body.description !== undefined ? body.description : undefined,
@@ -68,7 +68,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!session) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    const ok = tasksDb.delete(id, session.userId);
+    const ok = await tasksDb.delete(id, session.userId);
 
     if (!ok) {
       return Response.json({ success: false, error: 'Task not found or unauthorized' }, { status: 404 });

@@ -25,12 +25,19 @@ export async function POST(req: NextRequest) {
     }
 
     let isValid = false;
-    try {
-      isValid = await adminDb.verifyAdminPassword(password);
-    } catch (verifyErr) {
-      console.error('adminDb.verifyAdminPassword error:', verifyErr);
-      // If error occurs, fallback to master default password
-      isValid = password === 'Admin@Taskly2025';
+    const envAdminPassword = process.env.ADMIN_PASSWORD?.trim();
+
+    if (envAdminPassword) {
+      // Whatever password is set in .env, admin login will use that password
+      isValid = password === envAdminPassword;
+    } else {
+      try {
+        isValid = await adminDb.verifyAdminPassword(password);
+      } catch (verifyErr) {
+        console.error('adminDb.verifyAdminPassword error:', verifyErr);
+        // If error occurs and no env password, fallback to master default password
+        isValid = password === 'Admin@Taskly2025';
+      }
     }
 
     if (!isValid) {

@@ -17,10 +17,9 @@ export async function GET(req: NextRequest) {
 
     let activities: any[] = [];
     try {
-      activities = adminDb.getRecentSystemActivity(limit);
+      activities = await adminDb.getRecentSystemActivity(limit);
     } catch (dbErr) {
       console.error('Admin activity DB error:', dbErr);
-      // Return empty array instead of 500 — the table may not exist yet on fresh DB
       return Response.json({ success: true, activities: [] });
     }
 

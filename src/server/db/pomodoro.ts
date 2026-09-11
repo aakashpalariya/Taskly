@@ -11,16 +11,16 @@ export interface PomodoroSessionRow {
 }
 
 export const pomodoroDb = {
-  logSession(data: {
+  async logSession(data: {
     userId: string;
     taskId?: string | null;
     durationMinutes: number;
     sessionType?: 'FOCUS' | 'SHORT_BREAK' | 'LONG_BREAK';
-  }): PomodoroSessionRow {
+  }): Promise<PomodoroSessionRow> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    sqliteDb.prepare(`
+    await sqliteDb.prepare(`
       INSERT INTO pomodoro_sessions (id, user_id, task_id, duration_minutes, session_type, completed_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(
@@ -34,37 +34,38 @@ export const pomodoroDb = {
 
     // If linked to a task, update actual_minutes on task
     if (data.taskId && data.sessionType === 'FOCUS') {
-      sqliteDb.prepare(`
+      await sqliteDb.prepare(`
         UPDATE tasks 
         SET actual_minutes = actual_minutes + ? 
         WHERE id = ? AND user_id = ?
       `).run(data.durationMinutes, data.taskId, data.userId);
     }
 
-    return sqliteDb.prepare('SELECT * FROM pomodoro_sessions WHERE id = ?').get(id);
+    const created = await sqliteDb.prepare('SELECT * FROM pomodoro_sessions WHERE id = ?').get(id);
+    return created!;
   },
 
-  getStats(userId: string): {
+  async getStats(userId: string): Promise<{
     totalFocusMinutes: number;
     totalSessions: number;
     todayFocusMinutes: number;
     recentSessions: PomodoroSessionRow[];
-  } {
+  }> {
     const todayPrefix = new Date().toISOString().split('T')[0];
 
-    const total = sqliteDb.prepare(`
+    const total = await sqliteDb.prepare(`
       SELECT COALESCE(SUM(duration_minutes), 0) as totalMin, COUNT(*) as count
       FROM pomodoro_sessions
       WHERE user_id = ? AND session_type = 'FOCUS'
     `).get(userId);
 
-    const today = sqliteDb.prepare(`
+    const today = await sqliteDb.prepare(`
       SELECT COALESCE(SUM(duration_minutes), 0) as todayMin
       FROM pomodoro_sessions
       WHERE user_id = ? AND session_type = 'FOCUS' AND completed_at LIKE ?
     `).get(userId, `${todayPrefix}%`);
 
-    const recent = sqliteDb.prepare(`
+    const recent = await sqliteDb.prepare(`
       SELECT * FROM pomodoro_sessions
       WHERE user_id = ?
       ORDER BY completed_at DESC
@@ -72,9 +73,9 @@ export const pomodoroDb = {
     `).all(userId);
 
     return {
-      totalFocusMinutes: total?.totalMin || 0,
-      totalSessions: total?.count || 0,
-      todayFocusMinutes: today?.todayMin || 0,
+      totalFocusMinutes: Number(total?.totalMin || 0),
+      totalSessions: Number(total?.count || 0),
+      todayFocusMinutes: Number(today?.todayMin || 0),
       recentSessions: recent || [],
     };
   },

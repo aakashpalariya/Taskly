@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = usersDb.getByEmail(email);
+    const user = await usersDb.getByEmail(email);
     if (!user) {
       return Response.json(
         { success: false, error: 'No account found with this email address' },
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
 
     const newHash = await bcrypt.hash(newPassword, 10);
-    usersDb.update(user.id, { password_hash: newHash });
+    await usersDb.update(user.id, { password_hash: newHash });
 
     return Response.json({
       success: true,

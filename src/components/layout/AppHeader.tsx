@@ -94,7 +94,7 @@ export function AppHeader({ onToggleMobileMenu }: AppHeaderProps) {
               selectSize="sm"
               value={priorityFilter}
               onChange={(val: any) => setPriorityFilter(val?.target ? val.target.value : val)}
-              containerClassName="w-36"
+              containerClassName="w-[130px]"
             >
               <option value="ALL">All Priorities</option>
               <option value="HIGH">High Priority</option>
@@ -106,7 +106,7 @@ export function AppHeader({ onToggleMobileMenu }: AppHeaderProps) {
               selectSize="sm"
               value={sortBy}
               onChange={(val: any) => setSortBy((val?.target ? val.target.value : val) as any)}
-              containerClassName="w-36"
+              containerClassName="w-[130px]"
             >
               <option value="position">Default Order</option>
               <option value="dueDate">Due Date</option>

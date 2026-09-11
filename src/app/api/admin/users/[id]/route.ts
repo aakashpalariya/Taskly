@@ -19,7 +19,7 @@ export async function GET(
 
     let details;
     try {
-      details = adminDb.getUserDetails(id);
+      details = await adminDb.getUserDetails(id);
     } catch (dbErr) {
       console.error('Admin get user details DB error:', dbErr);
       return Response.json({ success: false, error: 'Failed to load user details' }, { status: 503 });
@@ -58,7 +58,7 @@ export async function PATCH(
 
     // Toggle active status
     if (typeof body.isActive === 'boolean') {
-      const ok = adminDb.setUserActiveStatus(id, body.isActive);
+      const ok = await adminDb.setUserActiveStatus(id, body.isActive);
       if (!ok) {
         return Response.json({ success: false, error: 'User not found' }, { status: 404 });
       }
@@ -104,7 +104,7 @@ export async function DELETE(
     const { id } = await context.params;
     let ok: boolean;
     try {
-      ok = adminDb.deleteUser(id);
+      ok = await adminDb.deleteUser(id);
     } catch (dbErr) {
       console.error('Admin delete user DB error:', dbErr);
       return Response.json({ success: false, error: 'Failed to delete user' }, { status: 503 });

@@ -1,4 +1,4 @@
-import { getDb } from './connection';
+import { ensureDbInitialized } from './connection';
 import { seedDatabaseIfEmpty } from './seed';
 
 export * from './connection';
@@ -13,6 +13,6 @@ export * from './seed';
 
 // Ensure database and schema exist and are seeded
 export async function initServerDb() {
-  getDb();
+  await ensureDbInitialized();
   await seedDatabaseIfEmpty();
 }

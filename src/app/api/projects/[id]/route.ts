@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
 
-    const updated = projectsDb.update(id, {
+    const updated = await projectsDb.update(id, {
       name: body.name !== undefined ? body.name : undefined,
       color: body.color !== undefined ? body.color : undefined,
       icon: body.icon !== undefined ? body.icon : undefined,
@@ -33,12 +33,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!session) return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const { id } = await params;
-    const project = projectsDb.getById(id);
+    const project = await projectsDb.getById(id);
     if (!project || project.user_id !== session.userId) {
       return Response.json({ success: false, error: 'Project not found' }, { status: 404 });
     }
 
-    const ok = projectsDb.delete(id);
+    const ok = await projectsDb.delete(id);
     return Response.json({ success: ok });
   } catch (err) {
     console.error('Delete project error:', err);

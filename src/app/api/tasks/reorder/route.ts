@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ success: false, error: 'taskIds array required' }, { status: 400 });
     }
 
-    tasksDb.reorder(session.userId, taskIds);
+    await tasksDb.reorder(session.userId, taskIds);
     return Response.json({ success: true });
   } catch (err) {
     console.error('Reorder tasks error:', err);
